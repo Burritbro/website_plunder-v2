@@ -5,28 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Website Plunder - Capture Any Page</title>
   <style>
-    /* ===========================================
-       Pirate Theme - Dark Navy with Gold Accents
-       =========================================== */
     :root {
       --navy-dark: #0a1628;
       --navy: #1a2744;
       --navy-light: #2a3754;
       --gold: #d4a853;
       --gold-light: #e8c97a;
-      --gold-dark: #b8923d;
-      --cream: #f5f0e1;
       --text: #e8e4d9;
       --text-muted: #9a9688;
       --error: #c94a4a;
       --success: #4a9c6b;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Courier New', Courier, monospace;
@@ -40,9 +31,6 @@
       padding: 2rem;
     }
 
-    /* ===========================================
-       Main Container
-       =========================================== */
     .container {
       width: 100%;
       max-width: 600px;
@@ -52,9 +40,6 @@
       padding: 2rem;
     }
 
-    /* ===========================================
-       Header
-       =========================================== */
     .header {
       text-align: center;
       margin-bottom: 2rem;
@@ -62,10 +47,7 @@
       border-bottom: 1px solid var(--navy-light);
     }
 
-    .logo {
-      font-size: 2.5rem;
-      margin-bottom: 0.25rem;
-    }
+    .logo { font-size: 2.5rem; margin-bottom: 0.25rem; }
 
     .title {
       font-family: Georgia, 'Times New Roman', serif;
@@ -75,25 +57,11 @@
       letter-spacing: 2px;
     }
 
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
+    .subtitle { color: var(--text-muted); font-size: 0.875rem; }
 
-    /* ===========================================
-       Form
-       =========================================== */
-    .form {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
+    .form { display: flex; flex-direction: column; gap: 1rem; }
 
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
+    .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
 
     .input-label {
       color: var(--gold);
@@ -114,14 +82,8 @@
       transition: border-color 0.2s;
     }
 
-    .input:focus {
-      outline: none;
-      border-color: var(--gold);
-    }
-
-    .input::placeholder {
-      color: var(--text-muted);
-    }
+    .input:focus { outline: none; border-color: var(--gold); }
+    .input::placeholder { color: var(--text-muted); }
 
     .btn {
       width: 100%;
@@ -139,18 +101,9 @@
       transition: all 0.2s;
     }
 
-    .btn:hover:not(:disabled) {
-      background-color: var(--gold-light);
-    }
+    .btn:hover:not(:disabled) { background-color: var(--gold-light); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* ===========================================
-       Status Display
-       =========================================== */
     .status {
       margin-top: 1.5rem;
       padding: 1rem;
@@ -160,9 +113,7 @@
       display: none;
     }
 
-    .status.visible {
-      display: block;
-    }
+    .status.visible { display: block; }
 
     .status-header {
       display: flex;
@@ -171,9 +122,7 @@
       margin-bottom: 0.5rem;
     }
 
-    .status-icon {
-      font-size: 1.25rem;
-    }
+    .status-icon { font-size: 1.25rem; }
 
     .status-title {
       color: var(--gold);
@@ -188,28 +137,12 @@
       line-height: 1.5;
     }
 
-    .status.error {
-      border-left-color: var(--error);
-    }
+    .status.error { border-left-color: var(--error); }
+    .status.error .status-title { color: var(--error); }
+    .status.success { border-left-color: var(--success); }
+    .status.success .status-title { color: var(--success); }
 
-    .status.error .status-title {
-      color: var(--error);
-    }
-
-    .status.success {
-      border-left-color: var(--success);
-    }
-
-    .status.success .status-title {
-      color: var(--success);
-    }
-
-    /* ===========================================
-       Progress Indicators
-       =========================================== */
-    .progress {
-      margin-top: 1rem;
-    }
+    .progress { margin-top: 1rem; }
 
     .progress-step {
       display: flex;
@@ -220,13 +153,8 @@
       font-size: 0.875rem;
     }
 
-    .progress-step.active {
-      color: var(--gold);
-    }
-
-    .progress-step.complete {
-      color: var(--success);
-    }
+    .progress-step.active { color: var(--gold); }
+    .progress-step.complete { color: var(--success); }
 
     .progress-dot {
       width: 8px;
@@ -240,18 +168,13 @@
       animation: pulse 1s infinite;
     }
 
-    .progress-step.complete .progress-dot {
-      background-color: var(--success);
-    }
+    .progress-step.complete .progress-dot { background-color: var(--success); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
 
-    /* ===========================================
-       Download Section
-       =========================================== */
     .download {
       margin-top: 1.5rem;
       padding-top: 1.5rem;
@@ -259,9 +182,7 @@
       display: none;
     }
 
-    .download.visible {
-      display: block;
-    }
+    .download.visible { display: block; }
 
     .download-btn {
       display: flex;
@@ -282,9 +203,7 @@
       transition: background-color 0.2s;
     }
 
-    .download-btn:hover {
-      background-color: #5aac7b;
-    }
+    .download-btn:hover { background-color: #5aac7b; }
 
     .download-stats {
       margin-top: 1rem;
@@ -314,9 +233,6 @@
       margin-top: 0.25rem;
     }
 
-    /* ===========================================
-       Footer
-       =========================================== */
     .footer {
       margin-top: 1.5rem;
       text-align: center;
@@ -324,35 +240,11 @@
       font-size: 0.75rem;
     }
 
-    .footer a {
-      color: var(--gold);
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* ===========================================
-       Responsive
-       =========================================== */
     @media (max-width: 480px) {
-      body {
-        padding: 1rem;
-      }
-
-      .container {
-        padding: 1.5rem;
-      }
-
-      .title {
-        font-size: 1.5rem;
-      }
-
-      .btn {
-        padding: 0.875rem 1rem;
-        font-size: 1rem;
-      }
+      body { padding: 1rem; }
+      .container { padding: 1.5rem; }
+      .title { font-size: 1.5rem; }
+      .btn { padding: 0.875rem 1rem; font-size: 1rem; }
     }
   </style>
 </head>
@@ -375,9 +267,7 @@
           required
         >
       </div>
-      <button type="submit" class="btn" id="submitBtn">
-        Plunder Page
-      </button>
+      <button type="submit" class="btn" id="submitBtn">Plunder Page</button>
     </form>
 
     <div class="status" id="status">
@@ -390,19 +280,11 @@
       <div class="progress" id="progress">
         <div class="progress-step" id="step-rendering">
           <span class="progress-dot"></span>
-          <span>Rendering page</span>
-        </div>
-        <div class="progress-step" id="step-analyzing">
-          <span class="progress-dot"></span>
-          <span>Analyzing layout</span>
-        </div>
-        <div class="progress-step" id="step-generating">
-          <span class="progress-dot"></span>
-          <span>Generating HTML</span>
+          <span>Extracting page content</span>
         </div>
         <div class="progress-step" id="step-testing">
           <span class="progress-dot"></span>
-          <span>Testing accuracy</span>
+          <span>Verifying output</span>
         </div>
       </div>
     </div>
@@ -433,7 +315,6 @@
     (function() {
       'use strict';
 
-      // Elements
       const form = document.getElementById('plunderForm');
       const urlInput = document.getElementById('urlInput');
       const submitBtn = document.getElementById('submitBtn');
@@ -441,63 +322,43 @@
       const statusIcon = document.getElementById('statusIcon');
       const statusTitle = document.getElementById('statusTitle');
       const statusMessage = document.getElementById('statusMessage');
-      const progress = document.getElementById('progress');
       const download = document.getElementById('download');
       const downloadBtn = document.getElementById('downloadBtn');
-      const desktopMatch = document.getElementById('desktopMatch');
-      const mobileMatch = document.getElementById('mobileMatch');
+      const desktopMatchEl = document.getElementById('desktopMatch');
+      const mobileMatchEl = document.getElementById('mobileMatch');
 
-      // Progress steps
-      const steps = ['rendering', 'analyzing', 'generating', 'testing'];
-
-      // Current job
-      let currentJobId = null;
+      const steps = ['rendering', 'testing'];
       let pollInterval = null;
 
-      // Status mapping
       const statusMap = {
         pending: { icon: '&#9881;', title: 'Queued', message: 'Waiting to start...' },
-        rendering: { icon: '&#9881;', title: 'Rendering', message: 'Capturing the target page...' },
-        analyzing: { icon: '&#9881;', title: 'Analyzing', message: 'Understanding the layout...' },
-        generating: { icon: '&#9881;', title: 'Generating', message: 'Creating the HTML clone...' },
-        testing: { icon: '&#9881;', title: 'Testing', message: 'Comparing visual accuracy...' },
-        refining: { icon: '&#9881;', title: 'Refining', message: 'Improving the match...' },
+        rendering: { icon: '&#9881;', title: 'Extracting', message: 'Capturing the target page...' },
+        testing: { icon: '&#9881;', title: 'Verifying', message: 'Checking output quality...' },
         completed: { icon: '&#10003;', title: 'Complete', message: 'Your plunder is ready!' },
         failed: { icon: '&#10007;', title: 'Failed', message: 'Something went wrong.' }
       };
 
-      // Update status display
       function updateStatus(jobStatus, message) {
         const info = statusMap[jobStatus] || statusMap.pending;
 
         status.classList.add('visible');
         status.classList.remove('error', 'success');
 
-        if (jobStatus === 'failed') {
-          status.classList.add('error');
-        } else if (jobStatus === 'completed') {
-          status.classList.add('success');
-        }
+        if (jobStatus === 'failed') status.classList.add('error');
+        else if (jobStatus === 'completed') status.classList.add('success');
 
         statusIcon.innerHTML = info.icon;
         statusTitle.textContent = info.title;
         statusMessage.textContent = message || info.message;
 
-        // Update progress steps
         const currentStepIndex = steps.indexOf(jobStatus);
-
         steps.forEach((step, index) => {
           const stepEl = document.getElementById('step-' + step);
           stepEl.classList.remove('active', 'complete');
-
-          if (index < currentStepIndex) {
-            stepEl.classList.add('complete');
-          } else if (index === currentStepIndex) {
-            stepEl.classList.add('active');
-          }
+          if (index < currentStepIndex) stepEl.classList.add('complete');
+          else if (index === currentStepIndex) stepEl.classList.add('active');
         });
 
-        // Show all steps as complete when done
         if (jobStatus === 'completed') {
           steps.forEach(step => {
             document.getElementById('step-' + step).classList.add('complete');
@@ -506,20 +367,17 @@
         }
       }
 
-      // Show download section
-      function showDownload(jobId, desktopMismatch, mobileMismatch) {
+      function showDownload(jobId, desktopMatch, mobileMatch) {
         downloadBtn.href = '/api/plunder/' + jobId + '/download';
-        desktopMatch.textContent = (100 - desktopMismatch).toFixed(1) + '%';
-        mobileMatch.textContent = (100 - mobileMismatch).toFixed(1) + '%';
+        desktopMatchEl.textContent = desktopMatch.toFixed(1) + '%';
+        mobileMatchEl.textContent = mobileMatch.toFixed(1) + '%';
         download.classList.add('visible');
       }
 
-      // Hide download section
       function hideDownload() {
         download.classList.remove('visible');
       }
 
-      // Poll job status
       function pollJobStatus(jobId) {
         pollInterval = setInterval(async () => {
           try {
@@ -532,13 +390,7 @@
               clearInterval(pollInterval);
               submitBtn.disabled = false;
               submitBtn.textContent = 'Plunder Page';
-
-              // Calculate match percentages from iterations
-              const lastIteration = data.iterations && data.iterations.length > 0
-                ? data.iterations[data.iterations.length - 1]
-                : { desktopMismatch: 0, mobileMismatch: 0 };
-
-              showDownload(jobId, lastIteration.desktopMismatch, lastIteration.mobileMismatch);
+              showDownload(jobId, data.desktopMatch || 0, data.mobileMatch || 0);
             } else if (data.status === 'failed') {
               clearInterval(pollInterval);
               submitBtn.disabled = false;
@@ -550,20 +402,17 @@
         }, 1500);
       }
 
-      // Handle form submission
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const url = urlInput.value.trim();
         if (!url) return;
 
-        // Reset UI
         hideDownload();
         submitBtn.disabled = true;
         submitBtn.textContent = 'Plundering...';
 
         try {
-          // Start plunder job
           const response = await fetch('/api/plunder', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -579,11 +428,8 @@
             return;
           }
 
-          currentJobId = data.jobId;
           updateStatus('pending', 'Job started...');
-
-          // Start polling
-          pollJobStatus(currentJobId);
+          pollJobStatus(data.jobId);
 
         } catch (error) {
           updateStatus('failed', 'Network error. Please try again.');
@@ -591,7 +437,6 @@
           submitBtn.textContent = 'Plunder Page';
         }
       });
-
     })();
   </script>
 </body>

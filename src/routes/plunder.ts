@@ -1,12 +1,8 @@
 /**
  * Plunder Route
  *
- * Orchestrates the page plundering process:
- * 1. Render original page via BrowserRenderMCP
- * 2. Analyze layout via VisionLayoutMCP
- * 3. Generate HTML via CodegenMCP
- * 4. Test via DiffTestMCP
- * 5. Refine if necessary (up to 3 iterations)
+ * Simplified approach: Extract page HTML with styles directly
+ * No complex analysis or regeneration - just capture what's there.
  */
 
 import { Router, Request, Response } from 'express';
@@ -15,24 +11,37 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 import { browserRenderMCP } from '../mcps/BrowserRenderMCP';
-import { visionLayoutMCP } from '../mcps/VisionLayoutMCP';
-import { codegenMCP } from '../mcps/CodegenMCP';
 import { diffTestMCP } from '../mcps/DiffTestMCP';
-import {
-  PlunderJob,
-  PlunderRequest,
-  PlunderResponse,
-  IterationResult,
-  LayoutPlan
-} from '../types';
 
 const router = Router();
 
+// Job types
+interface PlunderJob {
+  id: string;
+  url: string;
+  status: 'pending' | 'rendering' | 'testing' | 'completed' | 'failed';
+  createdAt: Date;
+  completedAt?: Date;
+  error?: string;
+  result?: {
+    htmlPath: string;
+    htmlContent: string;
+    desktopMismatch: number;
+    mobileMismatch: number;
+  };
+}
+
+interface PlunderResponse {
+  jobId: string;
+  status: string;
+  message?: string;
+  downloadUrl?: string;
+  desktopMatch?: number;
+  mobileMatch?: number;
+}
+
 // In-memory job storage
 const jobs = new Map<string, PlunderJob>();
-
-// Max refinement iterations
-const MAX_ITERATIONS = 3;
 
 // Output directory
 const OUTPUT_DIR = path.join(process.cwd(), 'output');
@@ -54,18 +63,16 @@ function isValidUrl(url: string): boolean {
  * Start a new plunder job
  */
 router.post('/', async (req: Request, res: Response) => {
-  const { url } = req.body as PlunderRequest;
+  const { url } = req.body;
 
-  // Validate URL
   if (!url || !isValidUrl(url)) {
     return res.status(400).json({
       jobId: '',
       status: 'failed',
       message: 'Invalid URL. Please provide a valid http or https URL.'
-    } as PlunderResponse);
+    });
   }
 
-  // Create job
   const jobId = uuidv4();
   const jobDir = path.join(OUTPUT_DIR, jobId);
 
@@ -73,29 +80,27 @@ router.post('/', async (req: Request, res: Response) => {
     id: jobId,
     url,
     status: 'pending',
-    createdAt: new Date(),
-    iterations: []
+    createdAt: new Date()
   };
 
   jobs.set(jobId, job);
 
-  // Start processing in background
+  // Process in background
   processJob(job, jobDir).catch(error => {
     job.status = 'failed';
     job.error = error instanceof Error ? error.message : 'Unknown error';
   });
 
-  // Return immediately with job ID
   return res.json({
     jobId,
     status: 'pending',
-    message: 'Plunder job started. Poll /api/plunder/:jobId for status.'
-  } as PlunderResponse);
+    message: 'Plunder job started.'
+  });
 });
 
 /**
  * GET /api/plunder/:jobId
- * Get job status and result
+ * Get job status
  */
 router.get('/:jobId', (req: Request, res: Response) => {
   const { jobId } = req.params;
@@ -106,18 +111,18 @@ router.get('/:jobId', (req: Request, res: Response) => {
       jobId,
       status: 'failed',
       message: 'Job not found'
-    } as PlunderResponse);
+    });
   }
 
   const response: PlunderResponse = {
     jobId: job.id,
-    status: job.status,
-    iterations: job.iterations
+    status: job.status
   };
 
   if (job.status === 'completed' && job.result) {
     response.downloadUrl = `/api/plunder/${jobId}/download`;
-    response.htmlContent = job.result.htmlContent;
+    response.desktopMatch = 100 - job.result.desktopMismatch;
+    response.mobileMatch = 100 - job.result.mobileMismatch;
   }
 
   if (job.status === 'failed') {
@@ -129,7 +134,7 @@ router.get('/:jobId', (req: Request, res: Response) => {
 
 /**
  * GET /api/plunder/:jobId/download
- * Download the generated HTML file
+ * Download generated HTML
  */
 router.get('/:jobId/download', (req: Request, res: Response) => {
   const { jobId } = req.params;
@@ -159,140 +164,57 @@ router.get('/:jobId/download', (req: Request, res: Response) => {
 });
 
 /**
- * Process the plunder job
+ * Process the plunder job - simplified direct extraction
  */
 async function processJob(job: PlunderJob, jobDir: string): Promise<void> {
-  // Ensure output directory exists
   if (!fs.existsSync(jobDir)) {
     fs.mkdirSync(jobDir, { recursive: true });
   }
 
   try {
-    // Step 1: Render original page
+    // Step 1: Extract page with styles
     job.status = 'rendering';
-    console.log(`[${job.id}] Rendering original page: ${job.url}`);
+    console.log(`[${job.id}] Extracting page: ${job.url}`);
 
-    const renderResult = await browserRenderMCP.render({
-      url: job.url,
-      outputDir: jobDir
-    });
+    const result = await browserRenderMCP.extractPage(job.url, jobDir);
 
-    if (!renderResult.success) {
-      throw new Error(renderResult.error || 'Failed to render page');
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to extract page');
     }
 
-    // Step 2: Analyze layout
-    job.status = 'analyzing';
-    console.log(`[${job.id}] Analyzing layout...`);
+    // Step 2: Test the extracted HTML
+    job.status = 'testing';
+    console.log(`[${job.id}] Testing extracted HTML...`);
 
-    let layoutPlan = visionLayoutMCP.analyze({
-      desktopScreenshot: renderResult.desktopScreenshot,
-      mobileScreenshot: renderResult.mobileScreenshot,
-      pageContent: renderResult.pageContent
+    const testDir = path.join(jobDir, 'test');
+    const diffResult = await diffTestMCP.test({
+      originalDesktop: result.desktopScreenshot,
+      originalMobile: result.mobileScreenshot,
+      generatedHtml: result.html,
+      outputDir: testDir
     });
-
-    // Step 3: Generate and test loop
-    let bestHtml = '';
-    let bestMismatch = { desktop: 100, mobile: 100 };
-    let iteration = 0;
-
-    while (iteration < MAX_ITERATIONS) {
-      iteration++;
-      console.log(`[${job.id}] Iteration ${iteration}/${MAX_ITERATIONS}`);
-
-      // Generate HTML
-      job.status = 'generating';
-      const htmlPath = path.join(jobDir, `generated-v${iteration}.html`);
-
-      const codegenResult = codegenMCP.generateAndSave(
-        { layoutPlan, pageContent: renderResult.pageContent },
-        htmlPath
-      );
-
-      // Test HTML
-      job.status = 'testing';
-      console.log(`[${job.id}] Testing generated HTML...`);
-
-      const iterationDir = path.join(jobDir, `iteration-${iteration}`);
-      const diffResult = await diffTestMCP.test({
-        originalDesktop: renderResult.desktopScreenshot,
-        originalMobile: renderResult.mobileScreenshot,
-        generatedHtml: codegenResult.html,
-        outputDir: iterationDir
-      });
-
-      // Record iteration result
-      const iterationResult: IterationResult = {
-        iteration,
-        desktopMismatch: diffResult.desktopMismatch,
-        mobileMismatch: diffResult.mobileMismatch
-      };
-      job.iterations.push(iterationResult);
-
-      console.log(`[${job.id}] Desktop mismatch: ${diffResult.desktopMismatch}%, Mobile mismatch: ${diffResult.mobileMismatch}%`);
-
-      // Track best result
-      const totalMismatch = diffResult.desktopMismatch + diffResult.mobileMismatch;
-      const bestTotalMismatch = bestMismatch.desktop + bestMismatch.mobile;
-
-      if (totalMismatch < bestTotalMismatch) {
-        bestHtml = codegenResult.html;
-        bestMismatch = {
-          desktop: diffResult.desktopMismatch,
-          mobile: diffResult.mobileMismatch
-        };
-      }
-
-      // Check if passes threshold
-      if (diffResult.passesThreshold) {
-        console.log(`[${job.id}] Passes threshold! Finishing.`);
-        bestHtml = codegenResult.html;
-        bestMismatch = {
-          desktop: diffResult.desktopMismatch,
-          mobile: diffResult.mobileMismatch
-        };
-        break;
-      }
-
-      // Refine if not last iteration
-      if (iteration < MAX_ITERATIONS) {
-        job.status = 'refining';
-        console.log(`[${job.id}] Refining layout...`);
-
-        const adjustments = diffTestMCP.suggestAdjustments(
-          diffResult.desktopMismatch,
-          diffResult.mobileMismatch,
-          iteration
-        );
-
-        iterationResult.adjustments = adjustments;
-        layoutPlan = visionLayoutMCP.refine(layoutPlan, adjustments);
-      }
-    }
 
     // Save final HTML
     const finalPath = path.join(jobDir, 'plundered-page.html');
-    fs.writeFileSync(finalPath, bestHtml, 'utf-8');
+    fs.writeFileSync(finalPath, result.html, 'utf-8');
 
-    // Mark job as completed
+    // Complete
     job.status = 'completed';
     job.completedAt = new Date();
     job.result = {
       htmlPath: finalPath,
-      htmlContent: bestHtml,
-      finalDesktopMismatch: bestMismatch.desktop,
-      finalMobileMismatch: bestMismatch.mobile,
-      iterations: iteration
+      htmlContent: result.html,
+      desktopMismatch: diffResult.desktopMismatch,
+      mobileMismatch: diffResult.mobileMismatch
     };
 
-    console.log(`[${job.id}] Completed! Final mismatch - Desktop: ${bestMismatch.desktop}%, Mobile: ${bestMismatch.mobile}%`);
+    console.log(`[${job.id}] Completed! Desktop: ${diffResult.desktopMismatch.toFixed(1)}%, Mobile: ${diffResult.mobileMismatch.toFixed(1)}%`);
 
   } catch (error) {
     job.status = 'failed';
     job.error = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[${job.id}] Failed:`, job.error);
   } finally {
-    // Clean up browser
     await browserRenderMCP.close();
   }
 }
