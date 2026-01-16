@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Plunder - Capture Any Page</title>
+  <style>
+    /* ===========================================
+       Pirate Theme - Dark Navy with Gold Accents
+       =========================================== */
+    :root {
+      --navy-dark: #0a1628;
+      --navy: #1a2744;
+      --navy-light: #2a3754;
+      --gold: #d4a853;
+      --gold-light: #e8c97a;
+      --gold-dark: #b8923d;
+      --cream: #f5f0e1;
+      --text: #e8e4d9;
+      --text-muted: #9a9688;
+      --error: #c94a4a;
+      --success: #4a9c6b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: var(--navy-dark);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    /* ===========================================
+       Main Container
+       =========================================== */
+    .container {
+      width: 100%;
+      max-width: 600px;
+      background-color: var(--navy);
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 2rem;
+    }
+
+    /* ===========================================
+       Header
+       =========================================== */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--navy-light);
+    }
+
+    .logo {
+      font-size: 2.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.75rem;
+      color: var(--gold);
+      margin-bottom: 0.5rem;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    /* ===========================================
+       Form
+       =========================================== */
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .input-label {
+      color: var(--gold);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .input {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      font-family: inherit;
+      font-size: 1rem;
+      background-color: var(--navy-dark);
+      border: 1px solid var(--navy-light);
+      border-radius: 4px;
+      color: var(--text);
+      transition: border-color 0.2s;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+
+    .input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.125rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      background-color: var(--gold);
+      color: var(--navy-dark);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover:not(:disabled) {
+      background-color: var(--gold-light);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* ===========================================
+       Status Display
+       =========================================== */
+    .status {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background-color: var(--navy-dark);
+      border-radius: 4px;
+      border-left: 3px solid var(--gold);
+      display: none;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-icon {
+      font-size: 1.25rem;
+    }
+
+    .status-title {
+      color: var(--gold);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-message {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .status.error {
+      border-left-color: var(--error);
+    }
+
+    .status.error .status-title {
+      color: var(--error);
+    }
+
+    .status.success {
+      border-left-color: var(--success);
+    }
+
+    .status.success .status-title {
+      color: var(--success);
+    }
+
+    /* ===========================================
+       Progress Indicators
+       =========================================== */
+    .progress {
+      margin-top: 1rem;
+    }
+
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .progress-step.active {
+      color: var(--gold);
+    }
+
+    .progress-step.complete {
+      color: var(--success);
+    }
+
+    .progress-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--navy-light);
+    }
+
+    .progress-step.active .progress-dot {
+      background-color: var(--gold);
+      animation: pulse 1s infinite;
+    }
+
+    .progress-step.complete .progress-dot {
+      background-color: var(--success);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ===========================================
+       Download Section
+       =========================================== */
+    .download {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--navy-light);
+      display: none;
+    }
+
+    .download.visible {
+      display: block;
+    }
+
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 1rem;
+      background-color: var(--success);
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: background-color 0.2s;
+    }
+
+    .download-btn:hover {
+      background-color: #5aac7b;
+    }
+
+    .download-stats {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .stat {
+      padding: 0.75rem;
+      background-color: var(--navy-dark);
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      color: var(--gold);
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-top: 0.25rem;
+    }
+
+    /* ===========================================
+       Footer
+       =========================================== */
+    .footer {
+      margin-top: 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .footer a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* ===========================================
+       Responsive
+       =========================================== */
+    @media (max-width: 480px) {
+      body {
+        padding: 1rem;
+      }
+
+      .container {
+        padding: 1.5rem;
+      }
+
+      .title {
+        font-size: 1.5rem;
+      }
+
+      .btn {
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">&#9875;</div>
+      <h1 class="title">Website Plunder</h1>
+      <p class="subtitle">Capture any page as a single HTML file</p>
+    </header>
+
+    <form class="form" id="plunderForm">
+      <div class="input-group">
+        <label class="input-label" for="urlInput">Target URL</label>
+        <input
+          type="url"
+          id="urlInput"
+          class="input"
+          placeholder="https://example.com/page"
+          required
+        >
+      </div>
+      <button type="submit" class="btn" id="submitBtn">
+        Plunder Page
+      </button>
+    </form>
+
+    <div class="status" id="status">
+      <div class="status-header">
+        <span class="status-icon" id="statusIcon">&#9881;</span>
+        <span class="status-title" id="statusTitle">Processing</span>
+      </div>
+      <p class="status-message" id="statusMessage">Starting plunder...</p>
+
+      <div class="progress" id="progress">
+        <div class="progress-step" id="step-rendering">
+          <span class="progress-dot"></span>
+          <span>Rendering page</span>
+        </div>
+        <div class="progress-step" id="step-analyzing">
+          <span class="progress-dot"></span>
+          <span>Analyzing layout</span>
+        </div>
+        <div class="progress-step" id="step-generating">
+          <span class="progress-dot"></span>
+          <span>Generating HTML</span>
+        </div>
+        <div class="progress-step" id="step-testing">
+          <span class="progress-dot"></span>
+          <span>Testing accuracy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="download" id="download">
+      <a href="#" class="download-btn" id="downloadBtn">
+        <span>&#8681;</span>
+        <span>Download HTML</span>
+      </a>
+      <div class="download-stats">
+        <div class="stat">
+          <div class="stat-label">Desktop Match</div>
+          <div class="stat-value" id="desktopMatch">--</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Mobile Match</div>
+          <div class="stat-value" id="mobileMatch">--</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>Visual clone tool &mdash; No data stored</p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Elements
+      const form = document.getElementById('plunderForm');
+      const urlInput = document.getElementById('urlInput');
+      const submitBtn = document.getElementById('submitBtn');
+      const status = document.getElementById('status');
+      const statusIcon = document.getElementById('statusIcon');
+      const statusTitle = document.getElementById('statusTitle');
+      const statusMessage = document.getElementById('statusMessage');
+      const progress = document.getElementById('progress');
+      const download = document.getElementById('download');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const desktopMatch = document.getElementById('desktopMatch');
+      const mobileMatch = document.getElementById('mobileMatch');
+
+      // Progress steps
+      const steps = ['rendering', 'analyzing', 'generating', 'testing'];
+
+      // Current job
+      let currentJobId = null;
+      let pollInterval = null;
+
+      // Status mapping
+      const statusMap = {
+        pending: { icon: '&#9881;', title: 'Queued', message: 'Waiting to start...' },
+        rendering: { icon: '&#9881;', title: 'Rendering', message: 'Capturing the target page...' },
+        analyzing: { icon: '&#9881;', title: 'Analyzing', message: 'Understanding the layout...' },
+        generating: { icon: '&#9881;', title: 'Generating', message: 'Creating the HTML clone...' },
+        testing: { icon: '&#9881;', title: 'Testing', message: 'Comparing visual accuracy...' },
+        refining: { icon: '&#9881;', title: 'Refining', message: 'Improving the match...' },
+        completed: { icon: '&#10003;', title: 'Complete', message: 'Your plunder is ready!' },
+        failed: { icon: '&#10007;', title: 'Failed', message: 'Something went wrong.' }
+      };
+
+      // Update status display
+      function updateStatus(jobStatus, message) {
+        const info = statusMap[jobStatus] || statusMap.pending;
+
+        status.classList.add('visible');
+        status.classList.remove('error', 'success');
+
+        if (jobStatus === 'failed') {
+          status.classList.add('error');
+        } else if (jobStatus === 'completed') {
+          status.classList.add('success');
+        }
+
+        statusIcon.innerHTML = info.icon;
+        statusTitle.textContent = info.title;
+        statusMessage.textContent = message || info.message;
+
+        // Update progress steps
+        const currentStepIndex = steps.indexOf(jobStatus);
+
+        steps.forEach((step, index) => {
+          const stepEl = document.getElementById('step-' + step);
+          stepEl.classList.remove('active', 'complete');
+
+          if (index < currentStepIndex) {
+            stepEl.classList.add('complete');
+          } else if (index === currentStepIndex) {
+            stepEl.classList.add('active');
+          }
+        });
+
+        // Show all steps as complete when done
+        if (jobStatus === 'completed') {
+          steps.forEach(step => {
+            document.getElementById('step-' + step).classList.add('complete');
+            document.getElementById('step-' + step).classList.remove('active');
+          });
+        }
+      }
+
+      // Show download section
+      function showDownload(jobId, desktopMismatch, mobileMismatch) {
+        downloadBtn.href = '/api/plunder/' + jobId + '/download';
+        desktopMatch.textContent = (100 - desktopMismatch).toFixed(1) + '%';
+        mobileMatch.textContent = (100 - mobileMismatch).toFixed(1) + '%';
+        download.classList.add('visible');
+      }
+
+      // Hide download section
+      function hideDownload() {
+        download.classList.remove('visible');
+      }
+
+      // Poll job status
+      function pollJobStatus(jobId) {
+        pollInterval = setInterval(async () => {
+          try {
+            const response = await fetch('/api/plunder/' + jobId);
+            const data = await response.json();
+
+            updateStatus(data.status, data.message);
+
+            if (data.status === 'completed') {
+              clearInterval(pollInterval);
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Plunder Page';
+
+              // Calculate match percentages from iterations
+              const lastIteration = data.iterations && data.iterations.length > 0
+                ? data.iterations[data.iterations.length - 1]
+                : { desktopMismatch: 0, mobileMismatch: 0 };
+
+              showDownload(jobId, lastIteration.desktopMismatch, lastIteration.mobileMismatch);
+            } else if (data.status === 'failed') {
+              clearInterval(pollInterval);
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Plunder Page';
+            }
+          } catch (error) {
+            console.error('Poll error:', error);
+          }
+        }, 1500);
+      }
+
+      // Handle form submission
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const url = urlInput.value.trim();
+        if (!url) return;
+
+        // Reset UI
+        hideDownload();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Plundering...';
+
+        try {
+          // Start plunder job
+          const response = await fetch('/api/plunder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            updateStatus('failed', data.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Plunder Page';
+            return;
+          }
+
+          currentJobId = data.jobId;
+          updateStatus('pending', 'Job started...');
+
+          // Start polling
+          pollJobStatus(currentJobId);
+
+        } catch (error) {
+          updateStatus('failed', 'Network error. Please try again.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Plunder Page';
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
