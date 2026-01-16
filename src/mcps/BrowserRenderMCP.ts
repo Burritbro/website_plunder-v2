@@ -1,36 +1,33 @@
 /**
  * BrowserRenderMCP
  *
- * Responsibility: Uses Playwright Chromium to render pages exactly as a real browser.
- * - Captures full-page screenshots (desktop 1440×900, mobile 390×844)
- * - Ensures fonts and images are fully loaded
- * - Respects robots.txt (fails gracefully if disallowed)
- * - Extracts page content and computed styles
+ * Responsibility: Uses Playwright to render pages and extract complete DOM with styles.
+ * - Renders page exactly as a real browser
+ * - Extracts full DOM with computed styles inlined
+ * - Converts images to base64 data URLs
+ * - Captures screenshots for comparison
  */
 
 import { chromium, Browser, Page } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
-import {
-  RenderRequest,
-  RenderResult,
-  PageContent,
-  ComputedStyleMap,
-  ImageInfo,
-  ColorPalette,
-  BoundingBox
-} from '../types';
 
 // Viewport configurations
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 
+export interface ExtractedPage {
+  success: boolean;
+  error?: string;
+  title: string;
+  html: string;
+  desktopScreenshot: string;
+  mobileScreenshot: string;
+}
+
 export class BrowserRenderMCP {
   private browser: Browser | null = null;
 
-  /**
-   * Initialize the browser instance
-   */
   async init(): Promise<void> {
     if (!this.browser) {
       this.browser = await chromium.launch({
@@ -40,9 +37,6 @@ export class BrowserRenderMCP {
     }
   }
 
-  /**
-   * Close the browser instance
-   */
   async close(): Promise<void> {
     if (this.browser) {
       await this.browser.close();
@@ -51,59 +45,11 @@ export class BrowserRenderMCP {
   }
 
   /**
-   * Check if URL is allowed by robots.txt
-   */
-  private async checkRobotsTxt(url: string): Promise<boolean> {
-    try {
-      const urlObj = new URL(url);
-      const robotsUrl = `${urlObj.protocol}//${urlObj.host}/robots.txt`;
-
-      const response = await fetch(robotsUrl);
-      if (!response.ok) {
-        // No robots.txt found, assume allowed
-        return true;
-      }
-
-      const robotsTxt = await response.text();
-      const lines = robotsTxt.split('\n');
-
-      let isUserAgentMatch = false;
-      for (const line of lines) {
-        const trimmed = line.trim().toLowerCase();
-
-        if (trimmed.startsWith('user-agent:')) {
-          const agent = trimmed.replace('user-agent:', '').trim();
-          isUserAgentMatch = agent === '*' || agent.includes('bot');
-        }
-
-        if (isUserAgentMatch && trimmed.startsWith('disallow:')) {
-          const disallowPath = trimmed.replace('disallow:', '').trim();
-          if (disallowPath === '/' || urlObj.pathname.startsWith(disallowPath)) {
-            return false;
-          }
-        }
-      }
-
-      return true;
-    } catch {
-      // Error fetching robots.txt, assume allowed
-      return true;
-    }
-  }
-
-  /**
-   * Wait for page to fully load (fonts, images, etc.)
+   * Wait for page to fully load
    */
   private async waitForFullLoad(page: Page): Promise<void> {
-    // Wait for network to be idle
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-
-    // Wait for fonts to load
-    await page.evaluate(() => {
-      return document.fonts.ready;
-    });
-
-    // Wait for images to load
+    await page.evaluate(() => document.fonts.ready);
     await page.evaluate(() => {
       const images = Array.from(document.images);
       return Promise.all(
@@ -117,204 +63,15 @@ export class BrowserRenderMCP {
         })
       );
     });
-
-    // Additional wait for any animations/transitions
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
   }
 
   /**
-   * Extract page content including HTML, styles, images, and colors
+   * Extract the complete page as a single HTML file with inlined styles
    */
-  private async extractPageContent(page: Page): Promise<PageContent> {
-    return await page.evaluate(() => {
-      // Helper to get computed style for an element
-      const getComputedStylesForElement = (el: Element): Record<string, string> => {
-        const computed = window.getComputedStyle(el);
-        const styles: Record<string, string> = {};
-        const importantProps = [
-          'display', 'flexDirection', 'justifyContent', 'alignItems', 'gap',
-          'gridTemplateColumns', 'gridTemplateRows',
-          'width', 'height', 'maxWidth', 'minHeight',
-          'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-          'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
-          'backgroundColor', 'color', 'backgroundImage',
-          'fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'textAlign',
-          'borderRadius', 'border', 'borderColor', 'borderWidth',
-          'boxShadow', 'position', 'top', 'left', 'right', 'bottom'
-        ];
-
-        for (const prop of importantProps) {
-          const value = computed.getPropertyValue(
-            prop.replace(/([A-Z])/g, '-$1').toLowerCase()
-          );
-          if (value && value !== 'none' && value !== 'normal' && value !== 'auto') {
-            styles[prop] = value;
-          }
-        }
-        return styles;
-      };
-
-      // Get title
-      const title = document.title || '';
-
-      // Get meta description
-      const metaDesc = document.querySelector('meta[name="description"]');
-      const metaDescription = metaDesc ? metaDesc.getAttribute('content') || '' : '';
-
-      // Get body HTML (cleaned)
-      const bodyClone = document.body.cloneNode(true) as HTMLElement;
-
-      // Remove scripts, tracking, and unwanted elements
-      const removeSelectors = [
-        'script', 'noscript', 'iframe[src*="google"]', 'iframe[src*="facebook"]',
-        'iframe[src*="analytics"]', '[class*="tracking"]', '[id*="tracking"]',
-        '[class*="gtm"]', '[id*="gtm"]', '[class*="cookie"]', '[id*="cookie"]'
-      ];
-
-      for (const selector of removeSelectors) {
-        bodyClone.querySelectorAll(selector).forEach(el => el.remove());
-      }
-
-      const bodyHtml = bodyClone.innerHTML;
-
-      // Extract computed styles for key elements
-      const computedStyles: { [selector: string]: { styles: Record<string, string>; boundingBox: { x: number; y: number; width: number; height: number } } } = {};
-
-      const keyElements = document.querySelectorAll(
-        'header, nav, main, section, article, aside, footer, ' +
-        'h1, h2, h3, h4, h5, h6, p, a, button, img, ' +
-        '[class*="hero"], [class*="card"], [class*="offer"], [class*="cta"]'
-      );
-
-      keyElements.forEach((el, index) => {
-        const rect = el.getBoundingClientRect();
-        const selector = el.tagName.toLowerCase() +
-          (el.id ? `#${el.id}` : '') +
-          (el.className ? `.${el.className.toString().split(' ').join('.')}` : '') +
-          `[${index}]`;
-
-        computedStyles[selector] = {
-          styles: getComputedStylesForElement(el),
-          boundingBox: {
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height
-          }
-        };
-      });
-
-      // Extract images
-      const images: { src: string; alt: string; width: number; height: number; dataUrl?: string }[] = [];
-      document.querySelectorAll('img').forEach(img => {
-        if (img.src && img.naturalWidth > 0) {
-          // Convert to base64 if possible
-          let dataUrl: string | undefined;
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0);
-              dataUrl = canvas.toDataURL('image/png');
-            }
-          } catch {
-            // CORS error, skip base64 conversion
-          }
-
-          images.push({
-            src: img.src,
-            alt: img.alt || '',
-            width: img.naturalWidth,
-            height: img.naturalHeight,
-            dataUrl
-          });
-        }
-      });
-
-      // Extract fonts
-      const fonts: string[] = [];
-      document.fonts.forEach(font => {
-        if (!fonts.includes(font.family)) {
-          fonts.push(font.family);
-        }
-      });
-
-      // Extract color palette
-      const backgroundColors = new Set<string>();
-      const textColors = new Set<string>();
-      const accentColors = new Set<string>();
-
-      document.querySelectorAll('*').forEach(el => {
-        const computed = window.getComputedStyle(el);
-        const bgColor = computed.backgroundColor;
-        const textColor = computed.color;
-
-        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-          backgroundColors.add(bgColor);
-        }
-        if (textColor) {
-          textColors.add(textColor);
-        }
-
-        // Accent colors from buttons, links, highlights
-        if (el.tagName === 'BUTTON' || el.tagName === 'A' ||
-            el.classList.contains('cta') || el.classList.contains('btn')) {
-          if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)') {
-            accentColors.add(bgColor);
-          }
-        }
-      });
-
-      const colors: { background: string[]; text: string[]; accent: string[] } = {
-        background: Array.from(backgroundColors).slice(0, 10),
-        text: Array.from(textColors).slice(0, 10),
-        accent: Array.from(accentColors).slice(0, 5)
-      };
-
-      return {
-        title,
-        metaDescription,
-        bodyHtml,
-        computedStyles,
-        images,
-        fonts,
-        colors
-      };
-    });
-  }
-
-  /**
-   * Render a URL and capture screenshots + content
-   */
-  async render(request: RenderRequest): Promise<RenderResult> {
+  async extractPage(url: string, outputDir: string): Promise<ExtractedPage> {
     await this.init();
 
-    const { url, outputDir } = request;
-
-    // Check robots.txt
-    const isAllowed = await this.checkRobotsTxt(url);
-    if (!isAllowed) {
-      return {
-        success: false,
-        error: 'URL is disallowed by robots.txt',
-        desktopScreenshot: '',
-        mobileScreenshot: '',
-        pageTitle: '',
-        pageContent: {
-          title: '',
-          metaDescription: '',
-          bodyHtml: '',
-          computedStyles: {},
-          images: [],
-          fonts: [],
-          colors: { background: [], text: [], accent: [] }
-        }
-      };
-    }
-
-    // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
@@ -327,122 +84,251 @@ export class BrowserRenderMCP {
     const page = await context.newPage();
 
     try {
-      // Navigate to URL
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000
-      });
-
-      // Wait for full load
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await this.waitForFullLoad(page);
 
-      // Get page title
-      const pageTitle = await page.title();
+      const title = await page.title();
 
-      // Extract page content
-      const pageContent = await this.extractPageContent(page);
+      // Extract all stylesheets into one
+      const allStyles = await page.evaluate(async () => {
+        let css = '';
 
-      // Capture desktop screenshot
-      const desktopScreenshot = path.join(outputDir, 'original-desktop.png');
-      await page.screenshot({
-        path: desktopScreenshot,
-        fullPage: true
+        // Get all stylesheet rules
+        for (const sheet of Array.from(document.styleSheets)) {
+          try {
+            if (sheet.cssRules) {
+              for (const rule of Array.from(sheet.cssRules)) {
+                css += rule.cssText + '\n';
+              }
+            }
+          } catch (e) {
+            // CORS error on external stylesheets - skip
+          }
+        }
+
+        // Get all inline styles
+        document.querySelectorAll('style').forEach(style => {
+          css += style.textContent + '\n';
+        });
+
+        return css;
       });
 
-      // Switch to mobile viewport
+      // Get the body HTML and process it
+      const bodyContent = await page.evaluate(async () => {
+        // Helper function to convert image to base64
+        async function imageToBase64(imgSrc: string): Promise<string> {
+          return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0);
+                  resolve(canvas.toDataURL('image/jpeg', 0.9));
+                } else {
+                  resolve(imgSrc);
+                }
+              } catch (e) {
+                resolve(imgSrc);
+              }
+            };
+            img.onerror = () => resolve(imgSrc);
+            img.src = imgSrc;
+            // Timeout after 3 seconds
+            setTimeout(() => resolve(imgSrc), 3000);
+          });
+        }
+
+        // Clone the body
+        const bodyClone = document.body.cloneNode(true) as HTMLElement;
+
+        // Remove scripts and tracking elements
+        const removeSelectors = [
+          'script', 'noscript', 'iframe',
+          '[class*="tracking"]', '[id*="tracking"]',
+          '[class*="gtm"]', '[id*="gtm"]',
+          '[class*="cookie"]', '[id*="cookie"]',
+          '[class*="consent"]', '[id*="consent"]',
+          '[class*="analytics"]', '[id*="analytics"]'
+        ];
+
+        for (const selector of removeSelectors) {
+          bodyClone.querySelectorAll(selector).forEach(el => el.remove());
+        }
+
+        // Process images - convert to base64
+        const images = bodyClone.querySelectorAll('img');
+        for (const img of Array.from(images)) {
+          const originalImg = document.querySelector(`img[src="${img.getAttribute('src')}"]`) as HTMLImageElement;
+          if (originalImg && originalImg.complete && originalImg.naturalWidth > 0) {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = originalImg.naturalWidth;
+              canvas.height = originalImg.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(originalImg, 0, 0);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                img.setAttribute('src', dataUrl);
+              }
+            } catch (e) {
+              // Keep original src if CORS fails
+            }
+          }
+          // Remove srcset and lazy loading attributes
+          img.removeAttribute('srcset');
+          img.removeAttribute('data-src');
+          img.removeAttribute('data-srcset');
+          img.removeAttribute('loading');
+          img.removeAttribute('decoding');
+        }
+
+        // Convert links to non-functional
+        bodyClone.querySelectorAll('a').forEach(a => {
+          a.setAttribute('href', '#');
+          a.removeAttribute('target');
+        });
+
+        // Remove data attributes that might cause issues
+        bodyClone.querySelectorAll('*').forEach(el => {
+          Array.from(el.attributes).forEach(attr => {
+            if (attr.name.startsWith('data-') && !attr.name.startsWith('data-offer')) {
+              el.removeAttribute(attr.name);
+            }
+          });
+        });
+
+        return bodyClone.innerHTML;
+      });
+
+      // Get computed body styles
+      const bodyStyles = await page.evaluate(() => {
+        const computed = window.getComputedStyle(document.body);
+        return {
+          backgroundColor: computed.backgroundColor,
+          color: computed.color,
+          fontFamily: computed.fontFamily,
+          fontSize: computed.fontSize,
+          lineHeight: computed.lineHeight,
+          margin: computed.margin,
+          padding: computed.padding
+        };
+      });
+
+      // Build the complete HTML
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${this.escapeHtml(title)}</title>
+  <style>
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Extracted Styles */
+${allStyles}
+
+/* Body overrides */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: ${bodyStyles.backgroundColor};
+  color: ${bodyStyles.color};
+  font-family: ${bodyStyles.fontFamily};
+  font-size: ${bodyStyles.fontSize};
+  line-height: ${bodyStyles.lineHeight};
+}
+
+/* Ensure images are responsive */
+img { max-width: 100%; height: auto; }
+
+/* Disable link interactions */
+a { cursor: default; }
+  </style>
+</head>
+<body>
+${bodyContent}
+</body>
+</html>`;
+
+      // Take screenshots
+      const desktopScreenshot = path.join(outputDir, 'original-desktop.png');
+      await page.screenshot({ path: desktopScreenshot, fullPage: true });
+
       await page.setViewportSize(MOBILE_VIEWPORT);
       await page.waitForTimeout(500);
 
-      // Capture mobile screenshot
       const mobileScreenshot = path.join(outputDir, 'original-mobile.png');
-      await page.screenshot({
-        path: mobileScreenshot,
-        fullPage: true
-      });
+      await page.screenshot({ path: mobileScreenshot, fullPage: true });
 
       await context.close();
 
       return {
         success: true,
+        title,
+        html,
         desktopScreenshot,
-        mobileScreenshot,
-        pageTitle,
-        pageContent
+        mobileScreenshot
       };
 
     } catch (error) {
       await context.close();
-
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error during rendering',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        title: '',
+        html: '',
         desktopScreenshot: '',
-        mobileScreenshot: '',
-        pageTitle: '',
-        pageContent: {
-          title: '',
-          metaDescription: '',
-          bodyHtml: '',
-          computedStyles: {},
-          images: [],
-          fonts: [],
-          colors: { background: [], text: [], accent: [] }
-        }
+        mobileScreenshot: ''
       };
     }
   }
 
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   /**
-   * Render HTML content and capture screenshots (for diff testing)
+   * Render HTML string and take screenshots
    */
-  async renderHtml(htmlContent: string, outputDir: string, prefix: string = 'generated'): Promise<{
+  async renderHtml(html: string, outputDir: string, prefix: string = 'generated'): Promise<{
     desktopScreenshot: string;
     mobileScreenshot: string;
   }> {
     await this.init();
 
-    // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const context = await this.browser!.newContext({
-      viewport: DESKTOP_VIEWPORT
-    });
-
+    const context = await this.browser!.newContext({ viewport: DESKTOP_VIEWPORT });
     const page = await context.newPage();
 
     try {
-      // Load HTML content
-      await page.setContent(htmlContent, { waitUntil: 'networkidle' });
+      await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+      await page.waitForTimeout(1000);
 
-      // Wait for fonts and images
-      await this.waitForFullLoad(page);
-
-      // Capture desktop screenshot
       const desktopScreenshot = path.join(outputDir, `${prefix}-desktop.png`);
-      await page.screenshot({
-        path: desktopScreenshot,
-        fullPage: true
-      });
+      await page.screenshot({ path: desktopScreenshot, fullPage: true });
 
-      // Switch to mobile viewport
       await page.setViewportSize(MOBILE_VIEWPORT);
       await page.waitForTimeout(500);
 
-      // Capture mobile screenshot
       const mobileScreenshot = path.join(outputDir, `${prefix}-mobile.png`);
-      await page.screenshot({
-        path: mobileScreenshot,
-        fullPage: true
-      });
+      await page.screenshot({ path: mobileScreenshot, fullPage: true });
 
       await context.close();
-
-      return {
-        desktopScreenshot,
-        mobileScreenshot
-      };
+      return { desktopScreenshot, mobileScreenshot };
 
     } catch (error) {
       await context.close();
